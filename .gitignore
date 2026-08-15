@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+wheels/
+*.egg
+MANIFEST
+
+# Environments
+.venv/
+env/
+venv/
+ENV/
+
+# PyInstaller
+*.manifest
+*.spec
+
+# macOS
+.DS_Store
+__MACOSX/
+*.app
+
+# IDE / editors
+.idea/
+.vscode/
+.spyderproject
+.spyproject
+
+# Test / coverage
+.pytest_cache/
+.coverage
+.tox/
+.nox/
+
+# Big / generated artifacts (not tracked in git)
+*.zip
+*.mp4
+*.pdf
+web-cache/
+
+# pygbag build output lives under web/ for GitHub Pages deployment
+# (assets.apk / assets.tar.gz are committed deliberately to serve the game)
