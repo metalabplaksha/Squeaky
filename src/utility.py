@@ -1,8 +1,11 @@
 # This file contains global functions, classes
 from __future__ import annotations
 
+import asyncio
 import math
+import os
 import random
+import sys
 
 import pygame
 import pygame_gui
@@ -16,6 +19,31 @@ def init_game():
     global screen_surf
     global ui_manager
 
+    if sys.platform == "emscripten":
+        # Match the mixer to the browser's AudioContext rate so SDL does not
+        # need its audio-stream resampler for the device, and use a large
+        # buffer: on wasm everything runs on the main thread, so when the game
+        # loop is busy the audio callback stalls - a big buffer keeps the music
+        # from stuttering into a robotic/choppy sound.
+        try:
+            pygame.mixer.init()
+            rate, _, channels = pygame.mixer.get_init()
+            pygame.mixer.quit()
+            pygame.mixer.pre_init(rate, -16, 2, 4096, allowedchanges=0)
+        except Exception:
+            pass
+    else:
+        # Desktop (Linux / WSL / Windows / macOS)
+        try:
+            pygame.mixer.init()
+        except Exception:
+            try:
+                # Fallback for headless or WSL environments missing system audio libraries
+                os.environ["SDL_AUDIODRIVER"] = "dummy"
+                pygame.mixer.init()
+            except Exception as e:
+                print(f"Warning: Audio mixer could not be initialized: {e}")
+
     pygame.init()
     # font = pygame.font.Font(globe.Window.fontpath, int(globe.Window.font_size / 2))
     ui_manager = pygame_gui.UIManager(globe.Window.size)
@@ -23,16 +51,14 @@ def init_game():
     # before set_mode line, as advised in Doc
     pygame.display.set_icon(globe.Window.icon)
 
-    screen_surf = pygame.display.set_mode(
-        size=globe.Window.size,
-        # flags=pygame.RESIZABLE,
-        display=0,
-    )
-    # make the window resizable by the cursor
-    screen_surf = pygame.display.set_mode(
-        globe.Window.size,
-        flags=pygame.RESIZABLE
-    )
+    screen_surf = pygame.display.set_mode(globe.Window.size)
+    if sys.platform == "emscripten":
+        try:
+            import platform
+            platform.window.config.gui_divider = 1
+            platform.window.window_resize()
+        except Exception:
+            pass
     # [display window should be sizeable](https://www.pygame.org/docs/ref/display.html#pygame.display.set_mode)
     print("hi, this is malhar here")
 
@@ -67,14 +93,18 @@ def text_on_screen(
     return text, text_pos
 
 
-def death_player(
+async def death_player(
     screen_surf, background_surf, coin_surf, tree_surf, squirrel_surf, bg_size
 ):
     # Stop Music
-
-    pygame.mixer.music.stop()
-    pygame.mixer.music.load(globe.Window.death_music, namehint="mp3")
-    pygame.mixer.music.play(loops=1, start=0.0, fade_ms=1)
+    if pygame.mixer.get_init():
+        try:
+            pygame.mixer.music.stop()
+            music_ext = "ogg" if sys.platform == "emscripten" else "mp3"
+            pygame.mixer.music.load(globe.Window.death_music, namehint=music_ext)
+            pygame.mixer.music.play(loops=1, start=0.0, fade_ms=1)
+        except Exception as e:
+            print("Death music error:", e)
 
     last_squirrel_surf = squirrel_surf
     death_y = globe.Squirrel.squirrel_y
@@ -89,7 +119,9 @@ def death_player(
         )
 
         screen_surf.blit(pygame.transform.scale(background_surf, bg_size), (0, 0))
+        globe.Game.clock.tick(globe.Game.fps)
         pygame.display.flip()  # flips the blit on to the next frame, updates the frame
+        await asyncio.sleep(0)
 
     last_squirrel_surf.blit(globe.Squirrel.splash_img.convert_alpha(), (0, 0))
     # Text on screen
@@ -148,9 +180,10 @@ def death_player(
     screen_surf.blit(text_surface_initpos, (xpos, ypos))
     globe.Game.clock.tick(globe.Game.fps)  # I am not sure what this does
     pygame.display.flip()  # flips the blit on to the next frame, updates the frame
+    await asyncio.sleep(0)
 
 
-def player(
+async def player(
     screen_surf, background_surf, coin_surf, tree_surf, squirrel_surf, bg_size
 ) -> tuple[bool, bool, bool]:
     death = False
@@ -162,7 +195,7 @@ def player(
         started = False
         success = False
 
-        death_player(
+        await death_player(
             screen_surf, background_surf, coin_surf, tree_surf, squirrel_surf, bg_size
         )
 
@@ -189,7 +222,7 @@ def player(
 
         if jump == -1 * globe.Squirrel.left_stepsize:
             # Tails or Left Jump
-            coin_toss(screen_surf, background_surf, coin_surf, bg_size, -1)
+            await coin_toss(screen_surf, background_surf, coin_surf, bg_size, -1)
             # I am not sure what this does
             globe.Game.clock.tick(globe.Game.fps)
 
@@ -203,7 +236,7 @@ def player(
 
         elif jump == 1 * globe.Squirrel.right_stepsize:
             # Heads or Right Jump
-            coin_toss(screen_surf, background_surf, coin_surf, bg_size, 1)
+            await coin_toss(screen_surf, background_surf, coin_surf, bg_size, 1)
             # I am not sure what this does
             globe.Game.clock.tick(globe.Game.fps)
 
@@ -268,7 +301,7 @@ def squirrel_draw(squirrel_surf, mode):
     return squirrel_surf
 
 
-def coin_toss(screen_surf, background, coin_surf, bg_size, mode):
+async def coin_toss(screen_surf, background, coin_surf, bg_size, mode):
     smoothness = math.pi * (1 - math.exp(-globe.Game.fps / 300)) / 2
     angle = 0 + smoothness
 
@@ -296,8 +329,9 @@ def coin_toss(screen_surf, background, coin_surf, bg_size, mode):
 
         background.blit(coin_surf, accurate_draw(coin_surf, globe.Coin.abs_pos))
         screen_surf.blit(pygame.transform.scale(background, bg_size), (0, 0))
-        globe.Game.clock.tick()
+        globe.Game.clock.tick(globe.Game.fps)
         pygame.display.flip()  # flips the blit on to the next frame, updates the frame
+        await asyncio.sleep(0)
 
 
 def coin_window(coin_surf, message, mode):
@@ -386,7 +420,7 @@ def return_surface(
 
 
 
-def game_loop():
+async def game_loop():
     # utility globals
     # init_pos = globe.Squirrel.cur_pos
     bg_size = screen_surf.get_size()
@@ -433,7 +467,11 @@ def game_loop():
                     print("ESCAPE")
                     started = False
                     dead = True
-                    pygame.mixer.music.stop()
+                    if pygame.mixer.get_init():
+                        try:
+                            pygame.mixer.music.stop()
+                        except Exception:
+                            pass
                     globe.Squirrel.num_hops = 0
                     globe.Tree.nodes = [[0 for _ in range(0, globe.Island.length + 1)]]
                     globe.Tree.edges = [
@@ -471,10 +509,15 @@ def game_loop():
                     started = True
                     dead = False
 
-                    pygame.mixer.music.load(globe.Window.main_music, namehint="mp3")
-                    # fades into 100 volume in 5ms
-                    # pygame.mixer.music.play(loops=-1, start=3.3, fade_ms=5)
-                    pygame.mixer.music.play(loops=-1, start=20, fade_ms=5)
+                    if pygame.mixer.get_init():
+                        try:
+                            music_ext = "ogg" if sys.platform == "emscripten" else "mp3"
+                            pygame.mixer.music.load(globe.Window.main_music, namehint=music_ext)
+                            # fades into 100 volume in 5ms
+                            # pygame.mixer.music.play(loops=-1, start=3.3, fade_ms=5)
+                            pygame.mixer.music.play(loops=-1, start=20, fade_ms=5)
+                        except Exception as e:
+                            print("Main music error:", e)
 
             elif current_event.type == pygame.VIDEORESIZE:
                 # in the running frame it is updated later on:
@@ -483,7 +526,11 @@ def game_loop():
                 if current_event.user_type == pygame_gui.UI_BUTTON_PRESSED \
                     and current_event.ui_element == mute_button:
                         muted = not muted
-                        pygame.mixer.music.set_volume(0 if muted else 1)
+                        if pygame.mixer.get_init():
+                            try:
+                                pygame.mixer.music.set_volume(0 if muted else 1)
+                            except Exception:
+                                pass
                         mute_button.set_text('Unmute' if muted else 'Mute')
                 elif current_event.user_type == pygame_gui.UI_HORIZONTAL_SLIDER_MOVED:
                     # Update parameter values when a slider is moved
@@ -537,7 +584,7 @@ def game_loop():
 
         if not dead and started:
             # if game already started
-            success, dead, started = player(
+            success, dead, started = await player(
                 screen_surf, background, coin_surf, tree_surf, squirrel_surf, bg_size
             )
             if success:
@@ -557,6 +604,7 @@ def game_loop():
             ui_manager.draw_ui(screen_surf)
         globe.Game.clock.tick(globe.Game.fps)  # I am not sure what this does
         pygame.display.flip()  # updating the frame
+        await asyncio.sleep(0)
 
 
 

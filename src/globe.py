@@ -2,6 +2,7 @@
 
 # import pygame_gui
 import os
+import sys
 
 import pygame
 
@@ -41,16 +42,12 @@ class Window(object):
     rel_padding = 0.13
     hor_padding = rel_padding * width
 
-    """
+    _music_ext = "ogg" if sys.platform == "emscripten" else "mp3"
     main_music = os.path.join(
-        os.path.dirname(__file__), "../assets/music/rock_around.mp3"
-    )
-    """
-    main_music = os.path.join(
-        os.path.dirname(__file__), "../assets/music/aao_twist_karein.mp3"
+        os.path.dirname(__file__), f"../assets/music/aao_twist_karein.{_music_ext}"
     )
     death_music = os.path.join(
-        os.path.dirname(__file__), "../assets/music/pacman_die.mp3"
+        os.path.dirname(__file__), f"../assets/music/pacman_die.{_music_ext}"
     )
 
     fontpath = os.path.join(os.path.dirname(__file__), "../assets/fonts/courier.ttf")
