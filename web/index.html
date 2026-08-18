@@ -327,7 +327,6 @@
             <span class="brand-subtitle">Random Walk on a Lonely Island</span>
         </div>
         <div class="top-actions">
-            <button class="action-btn" id="btn-song" title="Change Song">🎵 Aao Twist Karein</button>
             <button class="action-btn" id="btn-mute" title="Toggle Sound">🔊 Sound On</button>
             <button class="action-btn" id="btn-fullscreen" title="Fullscreen">⛶</button>
         </div>
@@ -417,7 +416,7 @@ const state = {
     num_hops: 0,
     speed: 1.0,
     muted: false,
-    currentSong: 'music_twist',
+
 
     // Probability Tree (Markov Walk History)
     nodes: [[...Array(ISLAND_LENGTH + 1)].map((_, i) => (i === 18 ? 1 : 0))],
@@ -440,28 +439,18 @@ const state = {
 const loadedImages = {};
 
 // --- AUDIO ENGINE ---
-const audioTracks = {
-    music_twist: new Audio('assets/music/aao_twist_karein.mp3'),
-    music_rock: new Audio('assets/music/rock_around.mp3'),
-    death: new Audio('assets/music/pacman_die.mp3')
-};
+const musicTrack = new Audio('assets/music/aao_twist_karein.mp3');
+musicTrack.loop = true;
+const deathSound = new Audio('assets/music/pacman_die.mp3');
 
-// Pre-configure tracks
-audioTracks.music_twist.loop = true;
-audioTracks.music_rock.loop = true;
-
-let currentAudio = audioTracks.music_twist;
+let currentAudio = musicTrack;
 
 function playMusic() {
     if (state.muted) return;
-    currentAudio = audioTracks[state.currentSong] || audioTracks.music_twist;
+    currentAudio = musicTrack;
     currentAudio.muted = false;
     currentAudio.volume = 1.0;
-    
-    // Start at ~20s mark for Aao Twist Karein (or beginning if rock)
-    if (currentAudio.currentTime === 0 && state.currentSong === 'music_twist') {
-        currentAudio.currentTime = 20;
-    }
+    currentAudio.currentTime = 0;
 
     const playPromise = currentAudio.play();
     if (playPromise !== undefined) {
@@ -480,8 +469,8 @@ function stopMusic() {
 function playDeathSound() {
     if (state.muted) return;
     try {
-        audioTracks.death.currentTime = 0;
-        audioTracks.death.play().catch(() => {});
+        deathSound.currentTime = 0;
+        deathSound.play().catch(() => {});
     } catch(e) {}
 }
 
@@ -940,20 +929,7 @@ document.getElementById('btn-mute').addEventListener('click', () => {
     }
 });
 
-// Song Switcher
-document.getElementById('btn-song').addEventListener('click', () => {
-    stopMusic();
-    if (state.currentSong === 'music_twist') {
-        state.currentSong = 'music_rock';
-        document.getElementById('btn-song').innerText = '🎵 Rock Around';
-    } else {
-        state.currentSong = 'music_twist';
-        document.getElementById('btn-song').innerText = '🎵 Aao Twist Karein';
-    }
-    if (state.started && !state.dead && state.autoPlaying) {
-        playMusic();
-    }
-});
+
 
 // Fullscreen Toggle
 document.getElementById('btn-fullscreen').addEventListener('click', () => {
