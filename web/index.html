@@ -339,7 +339,7 @@
     <div id="controls-overlay">
         <div class="control-item">
             <div class="control-label">
-                <span>Prob(Right)</span>
+                <span>Probability (R)</span>
                 <span class="val" id="val-prob">0.50</span>
             </div>
             <input type="range" id="slider-prob" min="0" max="1" step="0.01" value="0.5">
@@ -356,9 +356,9 @@
         <div class="control-item">
             <div class="control-label">
                 <span>Speed</span>
-                <span class="val" id="val-speed">3.00x</span>
+                <span class="val" id="val-speed">3.40x</span>
             </div>
-            <input type="range" id="slider-speed" min="3.0" max="3.6" step="0.01" value="3.0">
+            <input type="range" id="slider-speed" min="3.4" max="4.0" step="0.01" value="3.4">
         </div>
 
         <button class="btn-primary" id="btn-main-action">▶ Start Game</button>
@@ -414,7 +414,7 @@ const state = {
     init_pos: 18,
     cur_pos: 18,
     num_hops: 0,
-    speed: 3.0,
+    speed: 3.4,
     muted: false,
 
 
@@ -439,9 +439,17 @@ const state = {
 const loadedImages = {};
 
 // --- AUDIO ENGINE ---
+const MUSIC_START = 22;    // seconds
+const MUSIC_END = 185;     // 3:05 in seconds
 const musicTrack = new Audio('assets/music/aao_twist_karein.mp3');
-musicTrack.loop = true;
 const deathSound = new Audio('assets/music/pacman_die.mp3');
+
+// Custom loop: when track reaches 3:05, jump back to 22s
+musicTrack.addEventListener('timeupdate', () => {
+    if (musicTrack.currentTime >= MUSIC_END) {
+        musicTrack.currentTime = MUSIC_START;
+    }
+});
 
 let currentAudio = musicTrack;
 
@@ -450,7 +458,7 @@ function playMusic() {
     currentAudio = musicTrack;
     currentAudio.muted = false;
     currentAudio.volume = 1.0;
-    currentAudio.currentTime = 0;
+    currentAudio.currentTime = MUSIC_START;
 
     const playPromise = currentAudio.play();
     if (playPromise !== undefined) {
@@ -838,14 +846,14 @@ function drawProbabilityTree() {
         }
     }
 
-    // 3. Draw Visited Nodes (small red dots)
-    ctx.fillStyle = '#ff2b2b';
+    // 3. Draw Visited Nodes (small soft dots)
+    ctx.fillStyle = 'rgba(255, 140, 160, 0.7)';
     for (let r = 0; r < numHops; r++) {
         for (let c = 0; c <= ISLAND_LENGTH; c++) {
             if (state.nodes[r] && state.nodes[r][c] === 1) {
                 const pos = getNodePos(r, c);
                 ctx.beginPath();
-                ctx.arc(pos.x, pos.y, 2, 0, Math.PI * 2);
+                ctx.arc(pos.x, pos.y, 1.2, 0, Math.PI * 2);
                 ctx.fill();
             }
         }
